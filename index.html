@@ -163,10 +163,11 @@
 </div>
 
 <script>
+    // تم تحديث الرابط الجديد لقاعدة البيانات (سيرفر آسيا) لضمان التطابق التام
     const firebaseConfig = {
-        apiKey: "AIzaSyA6PC-y6wO1Lv8Hjgi...", // تأكد من وضع الكود كاملاً هنا
+        apiKey: "AIzaSyA6PC-y6wO1Lv8Hjgi...", 
         authDomain: "hussain-e8703.firebaseapp.com",
-        databaseURL: "https://hussain-e8703-default-rtdb.firebaseio.com/",
+        databaseURL: "https://hussain-e8703-default-rtdb.asia-southeast1.firebasedatabase.app/",
         projectId: "hussain-e8703",
         storageBucket: "hussain-e8703.appspot.com",
         messagingSenderId: "1071985338140",
@@ -211,7 +212,7 @@
                     canvas.height = img.height * scale;
                     let ctx = canvas.getContext("2d");
                     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                    state.tempImg = canvas.toDataURL("image/jpeg", 0.5); // تقليل الجودة لضمان سرعة النشر
+                    state.tempImg = canvas.toDataURL("image/jpeg", 0.5); 
                     document.getElementById('imagePreview').src = state.tempImg;
                     document.getElementById('imagePreview').style.display = "block";
                 };
@@ -318,6 +319,7 @@
         document.getElementById(id).classList.add('active');
         document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
         btn.classList.add('active');
+        window.scrollTo(0, 0); // لضمان العودة لأعلى الصفحة عند التنقل
     }
 
     function filterData(c, b) {
