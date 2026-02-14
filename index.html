@@ -124,10 +124,10 @@
         <div class="upload-area" onclick="document.getElementById('pImgFile').click()">
             <span style="font-size: 24px; display: block;">📸</span>
             <span style="font-weight: bold; color: #555;">اضغط لرفع صورة المنتج</span>
-            <input type="file" id="pImgFile" accept="image/*" style="display:none" onchange="previewImage(this)">
+            <input type="file" id="pImgFile" accept="image/*" style="display:none" onchange="previewAndResizeImage(this)">
             <img id="imagePreview" src="">
         </div>
-        <button class="btn-submit" onclick="addProduct()">نشر في السوق العراقي</button>
+        <button class="btn-submit" id="submitBtn" onclick="addProduct()">نشر في السوق العراقي</button>
     </div>
     <h3 style="margin:30px 0 15px; border-right: 4px solid var(--accent); padding-right: 10px;">🛠️ موادك المنشورة حالياً</h3>
     <div class="grid" id="adminGrid"></div>
@@ -164,7 +164,7 @@
 </div>
 
 <script>
-    // إعدادات Firebase الخاصة بمشروعك حسين (e8703)
+    // إعدادات Firebase الخاصة بمشروعك (hussain-e8703)
     const firebaseConfig = {
         apiKey: "AIzaSyA6PC-y6wO1Lv8Hjgi...", 
         authDomain: "hussain-e8703.firebaseapp.com",
@@ -185,58 +185,91 @@
         tempImg: ""
     };
 
-    // جلب المنتجات من السحابة
+    // جلب المنتجات
     db.ref('products').on('value', (s) => {
         state.products = s.val() ? Object.values(s.val()) : [];
         render();
     });
 
-    // جلب الطلبات من السحابة
+    // جلب الطلبات
     db.ref('orders').on('value', (s) => {
         state.orders = s.val() ? Object.values(s.val()) : [];
         renderOrders();
     });
 
-    function addProduct() {
-        const n = document.getElementById('pName').value, p = parseInt(document.getElementById('pPrice').value), c = document.getElementById('pCat').value;
-        if(n && p && state.tempImg) {
-            const id = Date.now();
-            db.ref('products/' + id).set({id, name:n, price:p, cat:c, img:state.tempImg});
-            alert("✅ تم النشر في السحابة بنجاح!");
-            document.getElementById('pName').value = ""; document.getElementById('pPrice').value = "";
-            document.getElementById('imagePreview').style.display="none"; state.tempImg="";
+    // ميزة تصغير الصورة تلقائياً لحل مشكلة المساحة
+    function previewAndResizeImage(input) {
+        if (input.files && input.files[0]) {
+            let reader = new FileReader();
+            reader.onload = function (e) {
+                let img = new Image();
+                img.onload = function() {
+                    let canvas = document.createElement('canvas');
+                    let max_size = 400; // تصغير الصورة ليكون عرضها 400 بكسل فقط
+                    let width = img.width;
+                    let height = img.height;
+
+                    if (width > height) {
+                        if (width > max_size) {
+                            height *= max_size / width;
+                            width = max_size;
+                        }
+                    } else {
+                        if (height > max_size) {
+                            width *= max_size / height;
+                            height = max_size;
+                        }
+                    }
+                    canvas.width = width;
+                    canvas.height = height;
+                    let ctx = canvas.getContext("2d");
+                    ctx.drawImage(img, 0, 0, width, height);
+                    
+                    state.tempImg = canvas.toDataURL("image/jpeg", 0.7); // جودة 70% لتقليل الحجم
+                    document.getElementById('imagePreview').src = state.tempImg;
+                    document.getElementById('imagePreview').style.display = "block";
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(input.files[0]);
         }
     }
 
-    function order(id) {
-        const p = state.products.find(x=>x.id===id);
-        const ph = prompt("أدخل رقم هاتفك لتأكيد الطلب:", state.account.phone || "");
-        if(ph) {
-            const ordId = Date.now();
-            db.ref('orders/' + ordId).set({
-                id: ordId, pName: p.name, phone: ph, time: new Date().toLocaleString(), status: 'جديد'
+    function addProduct() {
+        const n = document.getElementById('pName').value;
+        const p = parseInt(document.getElementById('pPrice').value);
+        const c = document.getElementById('pCat').value;
+        const btn = document.getElementById('submitBtn');
+
+        if(n && p && state.tempImg) {
+            btn.disabled = true;
+            btn.innerText = "جاري النشر...";
+            
+            const id = Date.now();
+            db.ref('products/' + id).set({
+                id, name: n, price: p, cat: c, img: state.tempImg
+            })
+            .then(() => {
+                alert("✅ تم النشر بنجاح!");
+                document.getElementById('pName').value = ""; 
+                document.getElementById('pPrice').value = "";
+                document.getElementById('imagePreview').style.display="none"; 
+                state.tempImg="";
+                btn.disabled = false;
+                btn.innerText = "نشر في السوق العراقي";
+            })
+            .catch((error) => {
+                alert("❌ فشل: " + error.message);
+                btn.disabled = false;
+                btn.innerText = "نشر في السوق العراقي";
             });
-            alert("تم إرسال طلبك للمورد!");
+        } else {
+            alert("⚠️ يرجى إدخال كافة البيانات وصورة المنتج");
         }
     }
 
     function del(id) { if(confirm("حذف المادة؟")) db.ref('products/' + id).remove(); }
 
-    function saveAccount() {
-        state.account = {
-            role: state.account.role,
-            name: document.getElementById('userName').value,
-            phone: document.getElementById('userPhone').value,
-            city: document.getElementById('userCity').value,
-            addr: document.getElementById('userAddress').value,
-            bName: document.getElementById('businessName').value
-        };
-        localStorage.setItem('m_account', JSON.stringify(state.account));
-        db.ref('users/' + state.account.phone).set(state.account); // حفظ الحساب سحابياً أيضاً
-        document.getElementById('saveMsg').style.display = 'block';
-    }
-
-    // باقي الوظائف المساعدة للتنسيق والعرض (كما هي في كودك)
     function render(filter = 'الكل') {
         const filtered = filter === 'الكل' ? state.products : state.products.filter(p => p.cat === filter);
         const html = (p, adm) => `
@@ -263,18 +296,6 @@
             </div>`).join('');
     }
 
-    function previewImage(input) {
-        if (input.files && input.files[0]) {
-            let r = new FileReader();
-            r.onload = e => {
-                document.getElementById('imagePreview').src = e.target.result;
-                document.getElementById('imagePreview').style.display = "block";
-                state.tempImg = e.target.result;
-            };
-            r.readAsDataURL(input.files[0]);
-        }
-    }
-
     function switchView(id, btn) {
         document.querySelectorAll('.view-section').forEach(v => v.classList.remove('active'));
         document.getElementById(id).classList.add('active');
@@ -288,6 +309,20 @@
         render(c);
     }
 
+    function saveAccount() {
+        state.account = {
+            role: state.account.role,
+            name: document.getElementById('userName').value,
+            phone: document.getElementById('userPhone').value,
+            city: document.getElementById('userCity').value,
+            addr: document.getElementById('userAddress').value,
+            bName: document.getElementById('businessName').value
+        };
+        localStorage.setItem('m_account', JSON.stringify(state.account));
+        db.ref('users/' + state.account.phone).set(state.account);
+        document.getElementById('saveMsg').style.display = 'block';
+    }
+
     function setRole(r, b) { 
         state.account.role = r; 
         document.querySelectorAll('.role-btn').forEach(x => x.classList.remove('active'));
@@ -295,8 +330,7 @@
         document.getElementById('businessDetails').style.display = (r === 'customer') ? 'none' : 'block';
     }
 
-    loadAccount();
-    function loadAccount() {
+    window.onload = function() {
         const acc = state.account;
         if(acc.name) {
             document.getElementById('userName').value = acc.name;
@@ -305,7 +339,7 @@
             document.getElementById('userAddress').value = acc.addr;
             document.getElementById('businessName').value = acc.bName || "";
         }
-    }
+    };
 </script>
 </body>
 </html>
